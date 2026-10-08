@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Orders</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>MyStore</h1>
+        <nav id="navbar"></nav>
+    </header>
+    <div class="container">
+        <h2>Order History</h2>
+        <div id="orders-list"></div>
+    </div>
+    <script src="/static/script.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'customer') window.location.href = '/login';
+
+        async function loadOrders() {
+            const res = await fetch(`/api/orders/user/${user.id}`);
+            const orders = await res.json();
+            const container = document.getElementById('orders-list');
+
+            if (orders.length === 0) {
+                container.innerHTML = '<p>You have no previous orders.</p>';
+                return;
+            }
+
+            let html = '';
+            orders.forEach(o => {
+                let itemsHtml = '<ul>';
+                o.items.forEach(i => {
+                    itemsHtml += `<li>${i.product ? i.product.name : 'Product'} (x${i.quantity}) - $${(i.price * i.quantity).toFixed(2)}</li>`;
+                });
+                itemsHtml += '</ul>';
+
+                html += `
+                    <div class="card" style="margin-bottom: 1rem; width:100%;">
+                        <h3>Order #${o.id}</h3>
+                        <p><strong>Status:</strong> ${o.status}</p>
+                        <p><strong>Total Amount:</strong> ₹${o.total_amount.toFixed(2)}</p>
+                        <p><strong>Date:</strong> ${new Date(o.created_at).toLocaleString()}</p>
+                        <p><strong>Items:</strong></p>
+                        ${itemsHtml}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+        loadOrders();
+    </script>
+</body>
+</html>

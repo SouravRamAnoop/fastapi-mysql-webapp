@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login / Register</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>MyStore</h1>
+        <nav id="navbar"></nav>
+    </header>
+    <div class="container" style="max-width: 400px;">
+        <div style="background:white; padding: 2rem; border-radius:6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <h2 id="form-title">Login</h2>
+            <form id="auth-form">
+                <div class="form-group" id="email-group" style="display:none;">
+                    <label>Email</label>
+                    <input type="email" id="email">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <div class="form-group" id="role-group" style="display:none;">
+                    <label>Role</label>
+                    <select id="role">
+                        <option value="customer">Customer</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <button type="submit" id="submit-btn" style="width:100%;">Login</button>
+            </form>
+            <p style="text-align:center; margin-top:1rem;">
+                <a href="#" id="toggle-link" onclick="toggleMode(event)">Don't have an account? Register</a>
+            </p>
+        </div>
+    </div>
+    <script src="/static/script.js"></script>
+    <script>
+        let isRegister = false;
+
+        function toggleMode(e) {
+            e.preventDefault();
+            isRegister = !isRegister;
+            document.getElementById('form-title').innerText = isRegister ? 'Register' : 'Login';
+            document.getElementById('submit-btn').innerText = isRegister ? 'Register' : 'Login';
+            document.getElementById('email-group').style.display = isRegister ? 'block' : 'none';
+            document.getElementById('role-group').style.display = isRegister ? 'block' : 'none';
+            document.getElementById('toggle-link').innerText = isRegister ? 'Already have an account? Login' : "Don't have an account? Register";
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (isRegister) {
+                const email = document.getElementById('email').value;
+                const role = document.getElementById('role').value;
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password, role })
+                });
+                if (res.ok) {
+                    alert('Registration successful! Please login.');
+                    toggleMode(e);
+                } else {
+                    const err = await res.json();
+                    alert(err.detail || 'Registration failed');
+                }
+            } else {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.ok) {
+                    const user = await res.json();
+                    localStorage.setItem('user', JSON.stringify(user));
+                    if (user.role === 'admin') {
+                        window.location.href = '/admin';
+                    } else {
+                        window.location.href = '/';
+                    }
+                } else {
+                    alert('Invalid username or password');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

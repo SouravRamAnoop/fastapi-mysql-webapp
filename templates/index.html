@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>E-Commerce Store</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>MyStore</h1>
+        <nav id="navbar"></nav>
+    </header>
+    <div class="container">
+        <h2>Available Products</h2>
+        <div id="product-list" class="grid"></div>
+    </div>
+    <script src="/static/script.js"></script>
+    <script>
+        async function loadProducts() {
+            const res = await fetch('/api/products');
+            const products = await res.json();
+            const listDiv = document.getElementById('product-list');
+            
+            if (products.length === 0) {
+                listDiv.innerHTML = '<p>No products available.</p>';
+                return;
+            }
+
+            let html = '';
+            products.forEach(p => {
+                html += `
+                    <div class="card">
+                        <img src="${p.image || '[https://via.placeholder.com/250](https://via.placeholder.com/250)'}" alt="${p.name}">
+                        <div>
+                            <h3>${p.name}</h3>
+                            <p>${p.description || ''}</p>
+                            <p class="price">₹${p.price.toFixed(2)}</p>
+                            <p>Stock: ${p.quantity}</p>
+                        </div>
+                        <button onclick="addToCart(${p.id})">Add to Cart</button>
+                    </div>
+                `;
+            });
+            listDiv.innerHTML = html;
+        }
+
+        async function addToCart(productId) {
+            const user = JSON.parse(localStorage.getItem('user'));
+            if (!user) {
+                alert('Please login first!');
+                window.location.href = '/login';
+                return;
+            }
+            if (user.role !== 'customer') {
+                alert('Admins cannot purchase items.');
+                return;
+            }
+
+            const res = await fetch(`/api/cart/${user.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product_id: productId, quantity: 1 })
+            });
+
+            if (res.ok) {
+                alert('Product added to cart!');
+            } else {
+                const err = await res.json();
+                alert(err.detail || 'Failed to add item');
+            }
+        }
+
+        loadProducts();
+    </script>
+</body>
+</html>

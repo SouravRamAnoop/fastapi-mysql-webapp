@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>MyStore - Admin Portal</h1>
+        <nav id="navbar"></nav>
+    </header>
+    <div class="container">
+        <h2>Manage Products</h2>
+        <div style="background:white; padding:1rem; border-radius:6px; margin-bottom:2rem;">
+            <h3 id="product-form-title">Add New Product</h3>
+            <form id="product-form">
+                <input type="hidden" id="product-id">
+                <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <input type="text" id="p-name" placeholder="Product Name" required>
+                    <input type="number" step="0.01" id="p-price" placeholder="Price" required>
+                    <input type="number" id="p-qty" placeholder="Quantity in Stock" required>
+                    <input type="text" id="p-category" placeholder="Category">
+                </div>
+                <textarea id="p-desc" placeholder="Description"></textarea>
+                <input type="text" id="p-image" placeholder="Image URL">
+                <button type="submit">Save Product</button>
+                <button type="button" id="cancel-edit" style="display:none; background:#7f8c8d;" onclick="resetProductForm()">Cancel</button>
+            </form>
+        </div>
+        <div id="admin-products-list"></div>
+
+        <h2 style="margin-top:3rem;">Manage Users / Customers</h2>
+        <div id="admin-users-list"></div>
+
+        <h2 style="margin-top:3rem;">Manage All Orders</h2>
+        <div id="admin-orders-list"></div>
+    </div>
+    <script src="/static/script.js"></script>
+    <script>
+        // --- PRODUCTS MANAGEMENT ---
+        async function loadAdminProducts() {
+            const res = await fetch('/api/products');
+            const products = await res.json();
+            let html = `<table><thead><tr><th>Name</th><th>Price</th><th>Stock</th><th>Category</th><th>Actions</th></tr></thead><tbody>`;
+            products.forEach(p => {
+                html += `
+                    <tr>
+                        <td>${p.name}</td>
+                        <td>$${p.price.toFixed(2)}</td>
+                        <td>${p.quantity}</td>
+                        <td>${p.category || '-'}</td>
+                        <td>
+                            <button onclick='editProduct(${JSON.stringify(p)})'>Edit</button>
+                            <button class="danger" onclick="deleteProduct(${p.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table>`;
+            document.getElementById('admin-products-list').innerHTML = html;
+        }
+
+        document.getElementById('product-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('product-id').value;
+            const data = {
+                name: document.getElementById('p-name').value,
+                price: parseFloat(document.getElementById('p-price').value),
+                quantity: parseInt(document.getElementById('p-qty').value),
+                category: document.getElementById('p-category').value,
+                description: document.getElementById('p-desc').value,
+                image: document.getElementById('p-image').value
+            };
+
+            const url = id ? `/api/products/${id}` : '/api/products';
+            const method = id ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                alert('Product saved successfully!');
+                resetProductForm();
+                loadAdminProducts();
+            } else {
+                alert('Failed to save product');
+            }
+        });
+
+        function editProduct(p) {
+            document.getElementById('product-id').value = p.id;
+            document.getElementById('p-name').value = p.name;
+            document.getElementById('p-price').value = p.price;
+            document.getElementById('p-qty').value = p.quantity;
+            document.getElementById('p-category').value = p.category || '';
+            document.getElementById('p-desc').value = p.description || '';
+            document.getElementById('p-image').value = p.image || '';
+            document.getElementById('product-form-title').innerText = 'Edit Product';
+            document.getElementById('cancel-edit').style.display = 'inline-block';
+        }
+
+        function resetProductForm() {
+            document.getElementById('product-form').reset();
+            document.getElementById('product-id').value = '';
+            document.getElementById('product-form-title').innerText = 'Add New Product';
+            document.getElementById('cancel-edit').style.display = 'none';
+        }
+
+        async function deleteProduct(id) {
+            if (confirm('Are you sure you want to delete this product?')) {
+                await fetch(`/api/products/${id}`, { method: 'DELETE' });
+                loadAdminProducts();
+            }
+        }
+
+        // --- USERS MANAGEMENT ---
+        async function loadAdminUsers() {
+            const res = await fetch('/api/users');
+            const users = await res.json();
+            let html = `<table><thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th></tr></thead><tbody>`;
+            users.forEach(u => {
+                html += `<tr><td>${u.id}</td><td>${u.username}</td><td>${u.email}</td><td>${u.role}</td></tr>`;
+            });
+            html += `</tbody></table>`;
+            document.getElementById('admin-users-list').innerHTML = html;
+        }
+
+        // --- ORDERS MANAGEMENT ---
+        async function loadAdminOrders() {
+            const res = await fetch('/api/orders');
+            const orders = await res.json();
+            let html = `<table><thead><tr><th>Order ID</th><th>Customer ID</th><th>Total</th><th>Status</th><th>Update Status</th></tr></thead><tbody>`;
+            orders.forEach(o => {
+                html += `
+                    <tr>
+                        <td>#${o.id}</td>
+                        <td>${o.user_id}</td>
+                        <td>$${o.total_amount.toFixed(2)}</td>
+                        <td>${o.status}</td>
+                        <td>
+                            <select onchange="updateStatus(${o.id}, this.value)">
+                                <option value="Pending" ${o.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                                <option value="Shipped" ${o.status === 'Shipped' ? 'selected' : ''}>Shipped</option>
+                                <option value="Delivered" ${o.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                                <option value="Cancelled" ${o.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table>`;
+            document.getElementById('admin-orders-list').innerHTML = html;
+        }
+
+        async function updateStatus(orderId, status) {
+            const res = await fetch(`/api/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            if (res.ok) {
+                alert('Order status updated!');
+                loadAdminOrders();
+            } else {
+                alert('Failed to update status');
+            }
+        }
+
+        // Initialize admin views
+        loadAdminProducts();
+        loadAdminUsers();
+        loadAdminOrders();
+    </script>
+</body>
+</html>

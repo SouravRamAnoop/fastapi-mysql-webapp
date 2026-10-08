@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shopping Cart</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>MyStore</h1>
+        <nav id="navbar"></nav>
+    </header>
+    <div class="container">
+        <h2>Your Shopping Cart</h2>
+        <div id="cart-content"></div>
+    </div>
+    <script src="/static/script.js"></script>
+    <script>
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || user.role !== 'customer') {
+            window.location.href = '/login';
+        }
+
+        async function loadCart() {
+            const res = await fetch(`/api/cart/${user.id}`);
+            const items = await res.json();
+            const container = document.getElementById('cart-content');
+
+            if (items.length === 0) {
+                container.innerHTML = '<p>Your cart is empty.</p>';
+                return;
+            }
+
+            let total = 0;
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Subtotal</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            items.forEach(item => {
+                const subtotal = item.product.price * item.quantity;
+                total += subtotal;
+                html += `
+                    <tr>
+                        <td>${item.product.name}</td>
+                        <td>₹${item.product.price.toFixed(2)}</td>
+                        <td>
+                            <input type="number" value="${item.quantity}" min="1" style="width:60px;" 
+                                   onchange="updateQuantity(${item.id}, this.value)">
+                        </td>
+                        <td>$${subtotal.toFixed(2)}</td>
+                        <td><button class="danger" onclick="removeItem(${item.id})">Remove</button></td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <h3>Total: ₹${total.toFixed(2)}</h3>
+                    <button onclick="checkout()" style="background-color: #27ae60; font-size: 1.1rem; padding: 0.8rem 1.5rem;">Proceed to Checkout</button>
+                </div>
+            `;
+            container.innerHTML = html;
+        }
+
+        async function updateQuantity(cartId, qty) {
+            const res = await fetch(`/api/cart/item/${cartId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity: parseInt(qty) })
+            });
+            if (res.ok) loadCart();
+            else {
+                const err = await res.json();
+                alert(err.detail || 'Stock limit exceeded');
+                loadCart();
+            }
+        }
+
+        async function removeItem(cartId) {
+            await fetch(`/api/cart/item/${cartId}`, { method: 'DELETE' });
+            loadCart();
+        }
+
+        async function checkout() {
+            const res = await fetch(`/api/orders/${user.id}`, { method: 'POST' });
+            if (res.ok) {
+                alert('Order placed successfully!');
+                window.location.href = '/orders';
+            } else {
+                const err = await res.json();
+                alert(err.detail || 'Checkout failed');
+            }
+        }
+
+        loadCart();
+    </script>
+</body>
+</html>
